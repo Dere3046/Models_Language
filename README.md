@@ -12,9 +12,9 @@
 
 ## 语言定位 / Language Overview
 
-MSLA（Models Language）是一门以"模块化思维"为核心设计理念的编程语言。它将现实世界中的对象抽象为变量矩阵与函数矩阵，将程序的执行流程组织为模块，让开发者能够像搭积木一样构建程序。
+MSLA（Models Language）是一门以 **"模块化思维"** 为核心设计理念的编程语言。它将现实世界中的对象抽象为**变量矩阵与函数矩阵**，将程序的执行流程组织为**模块**，让开发者能够像搭积木一样构建程序。
 
-MSLA (Models Language) is a programming language with "model-oriented thinking" at its core. It abstracts real-world objects into variable matrices and function matrices, organizes execution flow into modules, and allows developers to build programs like building blocks.
+MSLA (Models Language) is a programming language with **"model-oriented thinking"** at its core. It abstracts real-world objects into **variable matrices and function matrices**, organizes execution flow into **modules**, and allows developers to build programs like building blocks.
 
 ---
 
@@ -62,7 +62,7 @@ ins node network_[0:2]_[0:2]   # Instantiate as 3x3 function matrix
 
 ### 3. 模块化编程 / Modular Programming
 
-代码以**模块（mod）**组织。通过 `jump`（同进程跳转）和 `call`（新进程调用）实现模块协作，完美映射思维中的"步骤"与"分支"。
+代码以 **模块(mod)** 组织。通过 `jump`（同进程跳转）和 `call`（新进程调用）实现模块协作，完美映射思维中的"步骤"与"分支"。
 
 Code is organized in **modules (mod)**. Use `jump` (same-process) and `call` (new-process) for inter-module collaboration, naturally mapping to the "steps" and "branches" of human thinking.
 
