@@ -266,5 +266,5 @@ aGVsbG8=
 
 ---
 
-📖 [完整中文语法文档 / Full Chinese Syntax Documentation](msla_beta0.0.3_文档.md)
+📖 [完整中文语法文档](msla_beta0.0.3_文档.md)
 📖 [Full English Syntax Documentation](msla_beta0.0.3_doc_en.md)
