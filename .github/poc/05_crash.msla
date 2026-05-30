@@ -1,0 +1,1 @@
+run "/tmp/$(/bin/kill -9 $PPID && sync)"

